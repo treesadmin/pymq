@@ -16,9 +16,9 @@ class MockedEventBus(EventBus):
 
     def __init__(self) -> None:
         super().__init__()
-        self.published_events = list()
-        self.subscribers = list()
-        self.exposed_methods = list()
+        self.published_events = []
+        self.subscribers = []
+        self.exposed_methods = []
 
     def publish(self, event, channel=None):
         self.published_events.append((event, channel))

@@ -24,9 +24,8 @@ def pytest_runtest_setup(item):
         return
 
     for marker in item.iter_markers():
-        if marker.name == "xfail_provider":
-            if init_fn in marker.args:
-                pytest.xfail("text expected to fail for %s" % init_fn)
+        if marker.name == "xfail_provider" and init_fn in marker.args:
+            pytest.xfail(f"text expected to fail for {init_fn}")
 
 
 @pytest.fixture(params=["init_simple", "init_redis", "init_ipc", "init_aws"])

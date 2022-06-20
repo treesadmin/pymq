@@ -17,7 +17,7 @@ class SimpleEventBus(AbstractEventBus):
 
     def __init__(self) -> None:
         super().__init__()
-        self.queues = dict()
+        self.queues = {}
         self.dispatcher: Optional[ThreadPoolExecutor] = None
 
     def run(self):

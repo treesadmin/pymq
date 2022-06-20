@@ -202,14 +202,11 @@ class AwsQueue(Queue[QItem]):
             # re-calculated timeout based on time already waited
             timeout = timeout - (time.time() - then)
 
-            if not messages:
-                if not block or timeout < 1:
-                    raise Empty
-
-                # we're blocking and there's still wait time left
-                continue
-            else:
+            if messages:
                 break
+
+            if not block or timeout < 1:
+                raise Empty
 
         message = messages[0]
         body = message["Body"]
@@ -330,10 +327,9 @@ class AwsEventBus(AbstractEventBus):
 
                     logger.info("processing event %s", event)
 
-                    if isinstance(event, Event):
-                        if event.type == "close":
-                            logger.info("received closed event %s", event)
-                            return
+                    if isinstance(event, Event) and event.type == "close":
+                        logger.info("received closed event %s", event)
+                        return
 
                     if not isinstance(event, dict):
                         logger.warning("unknown event type %s", type(event))
@@ -453,11 +449,14 @@ class AwsEventBus(AbstractEventBus):
         if pattern:
             raise NotImplementedError("aws provider does not support pattern topics")
 
-        to_remove = list()
+        to_remove = [
+            sub
+            for sub in self._subscriptions
+            if sub.channel == channel
+            and sub.pattern == pattern
+            and sub.callback == callback
+        ]
 
-        for sub in self._subscriptions:
-            if sub.channel == channel and sub.pattern == pattern and sub.callback == callback:
-                to_remove.append(sub)
 
         for sub in to_remove:
             self.sns.unsubscribe(SubscriptionArn=sub.subscription_arn)

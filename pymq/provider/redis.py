@@ -98,7 +98,7 @@ class RedisEventBus(AbstractEventBus):
         self._lock = threading.Condition()
         self._closed = False
 
-        self.channel_prefix = "__eventbus:" + self.namespace + ":"
+        self.channel_prefix = f"__eventbus:{self.namespace}:"
 
     def _listen(self):
         while True:
@@ -137,7 +137,7 @@ class RedisEventBus(AbstractEventBus):
             for message in self._listen():
                 logger.debug("got message %s", message)
 
-                if not (message["type"] == "message" or message["type"] == "pmessage"):
+                if message["type"] not in ["message", "pmessage"]:
                     continue
 
                 if message["pattern"] is None:
@@ -214,9 +214,8 @@ class RedisEventBus(AbstractEventBus):
         if pattern:
             if redis_channel not in self._pubsub.patterns:
                 self._pubsub.psubscribe(redis_channel)
-        else:
-            if redis_channel not in self._pubsub.channels:
-                self._pubsub.subscribe(redis_channel)
+        elif redis_channel not in self._pubsub.channels:
+            self._pubsub.subscribe(redis_channel)
 
     def _unsubscribe(self, _: Callable, channel: str, pattern: bool):
         if self._pubsub is None:
@@ -232,9 +231,8 @@ class RedisEventBus(AbstractEventBus):
         if pattern:
             if redis_channel in self._pubsub.patterns:
                 self._pubsub.punsubscribe(redis_channel)
-        else:
-            if redis_channel in self._pubsub.channels:
-                self._pubsub.unsubscribe(redis_channel)
+        elif redis_channel in self._pubsub.channels:
+            self._pubsub.unsubscribe(redis_channel)
 
     def _init_subscriptions(self):
         logger.debug("initializing subscriptions %s", self._subscribers)
