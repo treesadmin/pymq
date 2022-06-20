@@ -36,11 +36,7 @@ def new_instance(cls, data):
     # if available, use constructor args
     arg_names = inspect.getfullargspec(cls).args
     args = {k: v for k, v in data.items() if k in arg_names}
-    if args:
-        obj = cls(**args)
-    else:
-        obj = cls()
-
+    obj = cls(**args) if args else cls()
     # set all others via 'setattr'
     for key, value in data.items():
         if key in args:
@@ -59,18 +55,14 @@ def fullname(o):
     # in Python 3.
 
     if isinstance(o, (types.MethodType, types.FunctionType)):
-        return o.__module__ + "." + o.__qualname__
+        return f"{o.__module__}.{o.__qualname__}"
 
-    if isinstance(o, type):
-        o = o
-    else:
-        o = o.__class__
-
+    o = o if isinstance(o, type) else o.__class__
     module = o.__module__
     if module is None or module == str.__class__.__module__:
         return o.__name__  # Avoid reporting __builtin__
     else:
-        return module + "." + o.__name__
+        return f"{module}.{o.__name__}"
 
 
 def deep_from_dict(doc, cls):
@@ -98,7 +90,7 @@ def deep_from_dict(doc, cls):
             return {deep_from_dict(element, element_class) for element in doc}
 
         if issubclass(container_class, tuple):
-            return tuple([deep_from_dict(doc[i], cls.__args__[i]) for i in range(len(doc))])
+            return tuple(deep_from_dict(doc[i], cls.__args__[i]) for i in range(len(doc)))
 
         if issubclass(container_class, dict):
             key_type = cls.__args__[0]
@@ -107,33 +99,22 @@ def deep_from_dict(doc, cls):
                 deep_from_dict(k, key_type): deep_from_dict(v, value_type) for k, v in doc.items()
             }
 
-        raise TypeError("Unknown generic class %s" % cls)
+        raise TypeError(f"Unknown generic class {cls}")
 
     if issubclass(cls, Exception):
-        if isinstance(doc, (list, tuple)):
-            return cls(*doc)
-        else:
-            return cls(doc)
-
+        return cls(*doc) if isinstance(doc, (list, tuple)) else cls(doc)
     if isinstance(doc, (bool, int, float, str, bytes, bytearray)):
-        if type(doc) != cls:
-            return cls(doc)
-        return doc
-
+        return cls(doc) if type(doc) != cls else doc
     if isinstance(doc, list) and cls in (set, tuple):
         return cls(doc)
 
     # otherwise we treat it as an object
     spec = typing.get_type_hints(cls)
-    result = dict()
+    result = {}
 
     if isinstance(doc, (list, tuple)):
-        # named tuples for example may be in a list
-        i = 0
-        for name, target_type in spec.items():
+        for i, (name, target_type) in enumerate(spec.items()):
             result[name] = deep_from_dict(doc[i], target_type)
-            i += 1
-
     else:
         for name, target_type in spec.items():
             if name not in doc:
@@ -151,7 +132,7 @@ def deep_to_dict(obj):
         return obj
 
     if isinstance(obj, tuple):
-        return tuple([deep_to_dict(a) for a in obj])
+        return tuple(deep_to_dict(a) for a in obj)
 
     if isinstance(obj, list):
         return [deep_to_dict(a) for a in obj]
@@ -171,4 +152,4 @@ def deep_to_dict(obj):
     if hasattr(obj, "__dict__"):
         return deep_to_dict(obj.__dict__)
 
-    raise TypeError("Unhandled type %s" % type(obj))
+    raise TypeError(f"Unhandled type {type(obj)}")

@@ -13,11 +13,10 @@ class DeepDictEncoder(json.JSONEncoder):
         if isinstance(obj, (bool, int, float, str, list, dict)):
             return super().encode(obj)
 
-        if isinstance(doc, dict):
-            doc["__type"] = fullname(obj)
-            return super().encode(doc)
-        else:
+        if not isinstance(doc, dict):
             return super().encode({"__obj": doc, "__type": fullname(obj)})
+        doc["__type"] = fullname(obj)
+        return super().encode(doc)
 
 
 class DeepDictDecoder(json.JSONDecoder):
@@ -26,20 +25,12 @@ class DeepDictDecoder(json.JSONDecoder):
     def decode(self, s, _w=json.decoder.WHITESPACE.match):
         doc = super().decode(s, _w)
 
-        cls = None
-        if self.target_class:
-            cls = self.target_class
-
+        cls = self.target_class or None
         if not isinstance(doc, dict):
-            if not cls:
-                return doc
-            else:
-                return deep_from_dict(doc, cls)
-
-        if cls is None:
-            if "__type" in doc:
-                cls = doc["__type"]
-                cls = self._load_class(cls)
+            return deep_from_dict(doc, cls) if cls else doc
+        if cls is None and "__type" in doc:
+            cls = doc["__type"]
+            cls = self._load_class(cls)
 
         if "__type" in doc:
             del doc["__type"]
@@ -47,10 +38,7 @@ class DeepDictDecoder(json.JSONDecoder):
         if "__obj" in doc:
             doc = doc["__obj"]
 
-        if cls:
-            return deep_from_dict(doc, cls)
-        else:
-            return doc
+        return deep_from_dict(doc, cls) if cls else doc
 
     @classmethod
     def for_type(cls, target_class: type):

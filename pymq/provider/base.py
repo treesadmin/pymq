@@ -28,12 +28,7 @@ def invoke_function(fn, data: str):
         spec = inspect.getfullargspec(fn)
         args = spec.args
 
-        if hasattr(fn, "__self__"):
-            # fn is bound to an object
-            event_arg = args[1]
-        else:
-            event_arg = args[0]
-
+        event_arg = args[1] if hasattr(fn, "__self__") else args[0]
         # checks whether the parameter has a type hint, and if so attempts to convert the event to the type
 
         if event_arg in spec.annotations:
@@ -64,8 +59,6 @@ def inspect_listener(fn) -> str:
             raise ValueError("Please annotate the event class with an appropriate type")
 
         event_type = spec.annotations[spec.args[1]]
-        return fullname(event_type)
-
     else:
         if len(spec.args) != 1:
             raise ValueError("Listener functions need exactly one arguments")
@@ -74,11 +67,12 @@ def inspect_listener(fn) -> str:
             raise ValueError("Please annotate the event class with an appropriate type")
 
         event_type = spec.annotations[spec.args[0]]
-        return fullname(event_type)
+
+    return fullname(event_type)
 
 
 def get_remote_name(fn):
-    return fn.__module__ + "." + fn.__qualname__
+    return f"{fn.__module__}.{fn.__qualname__}"
 
 
 class WrapperTopic(Topic):
@@ -150,7 +144,7 @@ class DefaultStubMethod(StubMethod):
         return deep_from_dict(response.result, load_class(response.result_type))
 
     def _next_callback_queue(self):
-        return "__rpc_" + str(uuid.uuid4())
+        return f"__rpc_{str(uuid.uuid4())}"
 
     def _get_response_queue(self, request: RpcRequest):
         return self._bus.queue(request.response_channel)
@@ -178,9 +172,9 @@ class DefaultStubMethod(StubMethod):
                 else:
                     n = 1
 
-            results = list()
+            results = []
 
-            for i in range(n):
+            for _ in range(n):
                 try:
                     logger.debug(
                         "waiting for response on queue %s, timeout %s,", queue.name, self.timeout
@@ -190,8 +184,12 @@ class DefaultStubMethod(StubMethod):
                     results.append(response)
                 except Empty:
                     response = RpcResponse(
-                        fn, ("Gave up waiting after %s" % self.timeout,), "TimeoutError", True
+                        fn,
+                        (f"Gave up waiting after {self.timeout}",),
+                        "TimeoutError",
+                        True,
                     )
+
                     results.append(response)
 
                 if not self.multi:
@@ -211,9 +209,9 @@ class DefaultStubMethod(StubMethod):
 
     def __repr__(self):
         if self._spec is None:
-            return "%s()" % self._channel
+            return f"{self._channel}()"
         else:
-            return "%s(%s)" % (self._channel, self._spec)
+            return f"{self._channel}({self._spec})"
 
 
 class DefaultSkeletonMethod:
@@ -246,17 +244,16 @@ class DefaultSkeletonMethod:
     def _invoke(self, request: RpcRequest) -> Any:
         spec = self._fn_spec
 
-        if not spec.args:
-            if request.args:
-                raise TypeError(
-                    "%s takes 0 positional arguments but %d were given"
-                    % (request.fn, len(request.args))
-                )
-        else:
+        if spec.args:
             if spec.args[0] == "self":
                 spec.args.remove("self")
 
-        args = list()
+        elif request.args:
+            raise TypeError(
+                "%s takes 0 positional arguments but %d were given"
+                % (request.fn, len(request.args))
+            )
+        args = []
 
         logger.debug("converting args %s to spec %s", request.args, spec)
 
@@ -280,7 +277,7 @@ class AbstractEventBus(EventBus, abc.ABC):
     def __init__(self) -> None:
         super().__init__()
         self._subscribers = defaultdict(list)
-        self._remote_fns = dict()
+        self._remote_fns = {}
 
     def topic(self, name: str, pattern: bool = False):
         return WrapperTopic(self, name, pattern)
@@ -306,9 +303,7 @@ class AbstractEventBus(EventBus, abc.ABC):
             channel = inspect_listener(callback)
             pattern = False
 
-        callbacks = self._subscribers.get((channel, pattern))
-
-        if callbacks:
+        if callbacks := self._subscribers.get((channel, pattern)):
             callbacks.remove(callback)
             if len(callbacks) == 0:
                 del self._subscribers[(channel, pattern)]
@@ -323,7 +318,7 @@ class AbstractEventBus(EventBus, abc.ABC):
             channel = str(fn)
             spec = None
         else:
-            raise TypeError("cannot create stub for fn type %s" % type(fn))
+            raise TypeError(f"cannot create stub for fn type {type(fn)}")
 
         return self._create_stub_method(channel, spec, timeout, multi)
 
@@ -332,7 +327,7 @@ class AbstractEventBus(EventBus, abc.ABC):
             channel = get_remote_name(fn)
 
         if channel in self._remote_fns:
-            raise ValueError("Function on channel %s already exposed" % channel)
+            raise ValueError(f"Function on channel {channel} already exposed")
 
         logger.debug('exposing at channel "%s" the function %s', channel, fn)
 
@@ -347,7 +342,7 @@ class AbstractEventBus(EventBus, abc.ABC):
         elif isinstance(fn, str):
             channel = fn
         else:
-            raise TypeError("cannot create stub for fn type %s" % type(fn))
+            raise TypeError(f"cannot create stub for fn type {type(fn)}")
 
         if channel not in self._remote_fns:
             return

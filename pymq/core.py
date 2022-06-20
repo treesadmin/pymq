@@ -112,8 +112,8 @@ class EventBus(abc.ABC):
         raise NotImplementedError
 
 
-_uninitialized_subscribers: List[Tuple[Callable, str, bool]] = list()
-_uninitialized_remote_fns: List[Tuple[Callable, str]] = list()
+_uninitialized_subscribers: List[Tuple[Callable, str, bool]] = []
+_uninitialized_remote_fns: List[Tuple[Callable, str]] = []
 
 _bus: Optional[EventBus] = None
 _runner: Optional[threading.Thread] = None

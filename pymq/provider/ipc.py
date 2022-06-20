@@ -42,7 +42,7 @@ class IpcQueue(Queue):
     def __init__(self, name: str, mqname: str = None) -> None:
         super().__init__()
         self._name = name
-        self._mqname = mqname or "/%s" % (name.lstrip("/"))
+        self._mqname = mqname or f'/{name.lstrip("/")}'
         self._mq = None
 
     @property
@@ -83,7 +83,7 @@ class IpcQueue(Queue):
             raise Full
 
     def exists(self):
-        return os.path.exists("/dev/mqueue%s" % self._mqname)
+        return os.path.exists(f"/dev/mqueue{self._mqname}")
 
     def close(self):
         if self._mq is not None:
@@ -228,7 +228,7 @@ class IpcEventBus(AbstractEventBus):
         return self.to_mqueue_name("$%d" % os.getpid())
 
     def to_mqueue_name(self, name):
-        return "/pymq_%s_%s" % (self.namespace, name)
+        return f"/pymq_{self.namespace}_{name}"
 
     def run(self):
         # TODO: locking
@@ -237,7 +237,10 @@ class IpcEventBus(AbstractEventBus):
             self.dispatcher = ThreadPoolExecutor(1)
 
         # prepare event loop queue, use pid as mq event loop name
-        event_loop = IpcQueue(name="eventloop_%s" % self.namespace, mqname=self.event_loop_name)
+        event_loop = IpcQueue(
+            name=f"eventloop_{self.namespace}", mqname=self.event_loop_name
+        )
+
         self.event_loop = event_loop
 
         try:
@@ -299,7 +302,7 @@ class IpcEventBus(AbstractEventBus):
         if not subscribers:
             return 0
 
-        queues = ["/" + subscriber for subscriber in subscribers]
+        queues = [f"/{subscriber}" for subscriber in subscribers]
         logger.debug("publishing event in %s into %s", channel, queues)
         for queue in queues:
             q = IpcQueue(queue)

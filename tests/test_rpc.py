@@ -20,7 +20,7 @@ class EchoCommand:
         self.param = param
 
     def __str__(self) -> str:
-        return "EchoCommand(%s)" % self.__dict__
+        return f"EchoCommand({self.__dict__})"
 
 
 class EchoResponse:
@@ -31,7 +31,7 @@ class EchoResponse:
         self.result = result
 
     def __str__(self) -> str:
-        return "EchoResponse(%s)" % self.__dict__
+        return f"EchoResponse({self.__dict__})"
 
 
 def void_function() -> None:
@@ -59,11 +59,11 @@ def simple_list_param_function(ls: List[int]) -> int:
 
 
 def echo_command_function(cmd: EchoCommand) -> str:
-    return "Hello %s!" % cmd.param
+    return f"Hello {cmd.param}!"
 
 
 def echo_command_response_function(cmd: EchoCommand) -> EchoResponse:
-    return EchoResponse("Hello %s!" % cmd.param)
+    return EchoResponse(f"Hello {cmd.param}!")
 
 
 def error_function():
@@ -76,7 +76,7 @@ class RpcHolder:
         self.prefix = prefix
 
     def echo(self, cmd: EchoCommand) -> EchoResponse:
-        return EchoResponse("%s %s!" % (self.prefix, cmd.param))
+        return EchoResponse(f"{self.prefix} {cmd.param}!")
 
 
 # noinspection PyUnresolvedReferences
@@ -199,7 +199,7 @@ class TestRpc:
     def test_remote_decorator(self, bus):
         @pymq.remote
         def remote_test_fn(param: str) -> str:
-            return "hello %s" % param
+            return f"hello {param}"
 
         stub = bus.stub(remote_test_fn)
         assert "hello unittest" == stub("unittest")
